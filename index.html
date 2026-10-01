@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Practice finding the range by selecting the largest and smallest values, then subtracting.">
+<title>Range Practice</title>
+<style>
+:root{color-scheme:light dark}
+body{margin:0;padding:16px;background:light-dark(#ffffff,#181818);font-family:system-ui,sans-serif}
+.cursor-interaction{cursor:pointer}
+
+#range-practice{--range-ink:light-dark(#182a37,#e8f0f3);--range-sub:light-dark(#526675,#afbdc6);--range-line:light-dark(#d3dfe4,#40515e);--range-accent:light-dark(#126b69,#76d3c9);--range-button:light-dark(#176864,#82d9cd);--range-button-text:light-dark(#ffffff,#102a28);--range-error:light-dark(#a3342f,#ffaaa1);font-family:system-ui,sans-serif;color:var(--range-ink);max-width:760px;margin:auto;padding:16px 0 24px}
+#range-practice *{box-sizing:border-box}#range-practice [hidden]{display:none!important}
+#range-practice header{padding-right:90px}#range-practice h2{font-size:24px;font-weight:500;margin:0}#range-practice h3{font-size:18px;font-weight:500;margin:0 0 8px}
+#range-practice p{margin:0;line-height:1.5}#range-practice .range-prompt{margin:26px 0 20px}#range-direction,#range-calculation{color:var(--range-sub)}
+#range-values{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 26px;font-variant-numeric:tabular-nums}
+#range-practice .range-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:86px;min-height:88px;padding:12px 4px;border:1px solid var(--range-line);background:light-dark(#f0f5f7,#233641);color:var(--range-ink);font-size:24px;transition:background .18s,border-color .18s}
+#range-practice .range-card span{font-size:11px;min-height:14px;font-weight:500}
+#range-practice .range-card.selected{background:light-dark(#d7eee7,#214b45);border-color:var(--range-accent);color:var(--range-accent)}
+#range-practice .range-card:disabled{opacity:1}
+@media(prefers-reduced-motion:reduce){#range-practice .range-card{transition:none}}
+#range-known{color:var(--range-accent);font-size:15px;font-weight:500;margin-bottom:14px!important}
+#range-entry{margin:18px 0 10px}#range-label{display:block;font-size:14px;font-weight:500;margin-bottom:8px}
+#range-answer{width:170px;font:400 17px system-ui,sans-serif;border:1px solid var(--range-line);border-radius:8px;background:transparent;color:var(--range-ink);padding:9px 10px;max-width:100%;font-variant-numeric:tabular-nums}
+#range-answer[aria-invalid="true"]{border-color:var(--range-error)}
+#range-message{min-height:24px;margin:12px 0!important;font-size:14px;color:var(--range-error)}#range-message.success{color:var(--range-accent)}
+#range-actions,#range-review{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#range-practice button{font:500 14px system-ui,sans-serif;padding:12px 17px;border-radius:8px}
+#range-practice .range-primary{border:1px solid transparent;background:var(--range-button);color:var(--range-button-text)}#range-practice .range-secondary{border:1px solid var(--range-line);background:transparent;color:var(--range-ink)}
+#range-practice button:disabled{opacity:.45;cursor:default}#range-practice button:focus-visible,#range-practice input:focus-visible{outline:3px solid var(--range-accent);outline-offset:3px}
+#range-review{margin-top:20px}#range-review span{color:var(--range-sub);font-size:13px}#range-next{margin-top:20px}#range-worked{margin-top:12px}
+@media(max-width:480px){#range-values{font-size:20px}}
+
+</style>
+</head>
+<body>
+<main>
+<div id="range-practice">
+  <header><h2>Range</h2></header>
+  <div class="range-prompt" aria-live="polite"><h3 id="range-title"></h3><p id="range-direction"></p></div>
+  <div id="range-values" role="group" aria-label="Data values"></div>
+  <p id="range-known" hidden></p>
+  <div id="range-entry">
+    <label id="range-label" for="range-answer"></label>
+    <input id="range-answer" type="text" inputmode="decimal" autocomplete="off" placeholder="Your answer" aria-describedby="range-message">
+  </div>
+  <p id="range-message" role="status" aria-live="polite"></p>
+  <div id="range-actions">
+    <button id="range-check" class="range-primary cursor-interaction" type="button">Check answer</button>
+    <button id="range-skip" class="range-secondary cursor-interaction" type="button">Skip step</button>
+  </div>
+  <div id="range-worked" hidden aria-live="polite"><h3 id="range-result"></h3><p id="range-calculation"></p></div>
+  <div id="range-review" hidden role="group" aria-label="Review the solution steps">
+    <span>Review steps</span>
+    <button id="range-back" class="range-secondary cursor-interaction" type="button">← Back</button>
+    <button id="range-forward" class="range-secondary cursor-interaction" type="button">Forward →</button>
+  </div>
+  <button id="range-next" hidden class="range-primary cursor-interaction" type="button">Try another set →</button>
+</div>
+</main>
+<script>
+
+(()=>{
+ const root=document.getElementById('range-practice'),q=s=>root.querySelector(s);
+ const entry=q('#range-answer'),message=q('#range-message');
+ let values=[],smallest=0,largest=0,step=0,finished=false,busy=false,bag=[],largestIndex=-1,smallestIndex=-1;
+ const randomInt=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=randomInt(0,i);[a[i],a[j]]=[a[j],a[i]];}return a;};
+ const labels=['Largest value','Smallest value','Range'];
+ const expected=()=>[largest,smallest,largest-smallest][step];
+ function generateValues(){
+   if(!bag.length)bag=shuffle([5,6,7]);
+   const count=bag.pop(),width=randomInt(20,30),low=randomInt(0,100-width);
+   return Array.from({length:count},()=>randomInt(low,low+width));
+ }
+ function clearMessage(){message.textContent='';message.classList.remove('success');entry.removeAttribute('aria-invalid');}
+ function syncControls(){
+   entry.disabled=busy;q('#range-check').disabled=busy;q('#range-skip').disabled=busy;
+   q('#range-back').disabled=step===0;q('#range-forward').disabled=step===2;
+   q('#range-values').querySelectorAll('button').forEach(card=>card.disabled=busy||finished||step===2);
+ }
+ function updateCards(){
+   q('#range-values').querySelectorAll('button').forEach((card,i)=>{
+     const isLargest=i===largestIndex;
+     const isSmallest=i===smallestIndex&&(!finished||step>=1);
+     const tag=isLargest&&isSmallest?'Largest / smallest':isLargest?'Largest':isSmallest?'Smallest':'';
+     card.classList.toggle('selected',isLargest||isSmallest);
+     card.setAttribute('aria-pressed',String(isLargest||isSmallest));
+     card.setAttribute('aria-label',String(values[i])+(tag?', '+tag.toLowerCase():''));
+     card.querySelector('span').textContent=tag;
+   });
+ }
+ function focusCurrent(){
+   const target=finished?q('#range-back'):step===2?entry:q('#range-values button');
+   if(target)target.focus({preventScroll:true});
+ }
+ function chooseCard(i){
+   if(busy||finished||step===2)return;
+   clearMessage();
+   if(values[i]!==expected()){
+     message.textContent=step===0?'Not quite. Choose the largest value.':'Not quite. Choose the smallest value.';
+     return;
+   }
+   if(step===0)largestIndex=i;else smallestIndex=i;
+   updateCards();advance(false);
+ }
+ function render(){
+   q('#range-title').textContent=finished&&step===2?'You found the range.':['Find the largest value.','Find the smallest value.','Subtract to find the range.'][step];
+   q('#range-direction').textContent=step===2?'Range = largest value − smallest value.':finished?'The '+(step===0?'largest':'smallest')+' value is highlighted.':step===0?'Click on the largest number.':'Now click on the smallest number.';
+   updateCards();
+   q('#range-known').hidden=step!==2||finished;
+   q('#range-known').textContent=largest+' − '+smallest+' = ?';
+   q('#range-label').textContent='Range';entry.value='';
+   q('#range-entry').hidden=finished||step!==2;q('#range-actions').hidden=finished;
+   q('#range-check').hidden=step!==2;
+   q('#range-worked').hidden=!finished;q('#range-review').hidden=!finished;q('#range-next').hidden=!finished;
+   q('#range-result').textContent=labels[step]+' = '+expected();
+   q('#range-calculation').textContent=step===2?largest+' − '+smallest+' = '+(largest-smallest):'';
+   syncControls();
+ }
+ function fresh(){
+   if(busy)return;
+   values=generateValues();smallest=Math.min(...values);largest=Math.max(...values);step=0;finished=false;largestIndex=-1;smallestIndex=-1;
+   q('#range-values').replaceChildren();
+   values.forEach((value,i)=>{
+     const card=document.createElement('button');card.type='button';card.className='range-card cursor-interaction';
+     card.append(document.createTextNode(value),document.createElement('span'));
+     card.addEventListener('click',()=>chooseCard(i));q('#range-values').append(card);
+   });
+   clearMessage();render();
+ }
+ async function advance(skipped){
+   busy=true;syncControls();message.classList.add('success');
+   message.textContent=(skipped?'':'Correct · ')+(step===2?largest+' − '+smallest+' = '+expected():labels[step]+' = '+expected());
+   const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+   await new Promise(resolve=>setTimeout(resolve,reduced?0:650));
+   if(step===2)finished=true;else step++;
+   busy=false;clearMessage();render();
+   focusCurrent();
+ }
+ function check(){
+   if(busy||finished||step!==2)return;clearMessage();
+   const raw=entry.value.trim(),valid=/^[+]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw),value=valid?Number(raw):NaN;
+   if(!Number.isFinite(value)||value!==expected()){
+     message.textContent=!Number.isFinite(value)?'Enter a number.':['Not quite. Look for the lowest number in the list.','Not quite. Look for the highest number in the list.','Not quite. Subtract '+smallest+' from '+largest+'.'][step];
+     entry.setAttribute('aria-invalid','true');entry.focus();entry.select();return;
+   }
+   advance(false);
+ }
+ q('#range-check').addEventListener('click',check);
+ entry.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();check();}});
+ entry.addEventListener('input',()=>{if(!busy)clearMessage();});
+ q('#range-skip').addEventListener('click',()=>{
+   if(busy||finished)return;clearMessage();
+   if(step===0)largestIndex=values.indexOf(largest);
+   else if(step===1)smallestIndex=values.indexOf(smallest);
+   else entry.value=String(expected());
+   updateCards();advance(true);
+ });
+ function review(delta){if(!finished||busy)return;const next=step+delta;if(next<0||next>2)return;step=next;clearMessage();render();}
+ q('#range-back').addEventListener('click',()=>review(-1));q('#range-forward').addEventListener('click',()=>review(1));
+ q('#range-next').addEventListener('click',()=>{fresh();focusCurrent();});
+ fresh();
+})();
+
+</script>
+</body>
+</html>
